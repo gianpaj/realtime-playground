@@ -1,19 +1,9 @@
 // SPDX-FileCopyrightText: 2024 LiveKit, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-import {
-  type JobContext,
-  WorkerOptions,
-  cli,
-  defineAgent,
-  multimodal,
-} from "@livekit/agents";
+import { type JobContext, WorkerOptions, cli, defineAgent, multimodal } from "@livekit/agents";
 import * as openai from "@livekit/agents-plugin-openai";
-import type {
-  LocalParticipant,
-  Participant,
-  TrackPublication,
-} from "@livekit/rtc-node";
+import type { LocalParticipant, Participant, TrackPublication } from "@livekit/rtc-node";
 import { RemoteParticipant, TrackSource } from "@livekit/rtc-node";
 import { fileURLToPath } from "node:url";
 import { v4 as uuidv4 } from "uuid";
@@ -56,18 +46,13 @@ function parseSessionConfig(data: any): SessionConfig {
     instructions: data.instructions || "",
     voice: data.voice || "",
     temperature: parseFloat(data.temperature || "0.8"),
-    maxOutputTokens:
-      data.max_output_tokens === "inf"
-        ? Infinity
-        : parseInt(data.max_output_tokens) || undefined,
+    maxOutputTokens: data.max_output_tokens === "inf" ? Infinity : parseInt(data.max_output_tokens) || undefined,
     modalities: modalitiesFromString(data.modalities || "text_and_audio"),
     turnDetection: data.turn_detection ? JSON.parse(data.turn_detection) : null,
   };
 }
 
-function modalitiesFromString(
-  modalities: string,
-): ["text", "audio"] | ["text"] {
+function modalitiesFromString(modalities: string): ["text", "audio"] | ["text"] {
   const modalitiesMap: { [key: string]: ["text", "audio"] | ["text"] } = {
     text_and_audio: ["text", "audio"],
     text_only: ["text"],
@@ -77,19 +62,14 @@ function modalitiesFromString(
 
 function getMicrophoneTrackSid(participant: Participant): string | undefined {
   return Array.from(participant.trackPublications.values()).find(
-    (track: TrackPublication) => track.source === TrackSource.SOURCE_MICROPHONE,
+    (track: TrackPublication) => track.source === TrackSource.SOURCE_MICROPHONE
   )?.sid;
 }
 
-async function runMultimodalAgent(
-  ctx: JobContext,
-  participant: RemoteParticipant,
-) {
+async function runMultimodalAgent(ctx: JobContext, participant: RemoteParticipant) {
   const metadata = JSON.parse(participant.metadata);
   const config = parseSessionConfig(metadata);
-  console.log(
-    `starting multimodal agent with config: ${safeLogConfig(config)}`,
-  );
+  console.log(`starting multimodal agent with config: ${safeLogConfig(config)}`);
 
   const model = new openai.realtime.RealtimeModel({
     apiKey: config.openaiApiKey,
@@ -102,9 +82,7 @@ async function runMultimodalAgent(
   });
 
   const agent = new multimodal.MultimodalAgent({ model });
-  const session = (await agent.start(
-    ctx.room,
-  )) as openai.realtime.RealtimeSession;
+  const session = (await agent.start(ctx.room)) as openai.realtime.RealtimeSession;
 
   session.conversation.item.create({
     type: "message",
@@ -120,10 +98,7 @@ async function runMultimodalAgent(
 
   ctx.room.on(
     "participantAttributesChanged",
-    (
-      changedAttributes: Record<string, string>,
-      changedParticipant: Participant,
-    ) => {
+    (changedAttributes: Record<string, string>, changedParticipant: Participant) => {
       if (changedParticipant !== participant) {
         return;
       }
@@ -139,7 +114,7 @@ async function runMultimodalAgent(
         modalities: newConfig.modalities as ["text", "audio"] | ["text"],
         turnDetection: newConfig.turnDetection,
       });
-    },
+    }
   );
 
   async function sendTranscription(
@@ -148,7 +123,7 @@ async function runMultimodalAgent(
     trackSid: string,
     segmentId: string,
     text: string,
-    isFinal: boolean = true,
+    isFinal: boolean = true
   ) {
     const transcription = {
       participantIdentity: participant.identity,
@@ -164,16 +139,16 @@ async function runMultimodalAgent(
         },
       ],
     };
-    await (ctx.room.localParticipant as LocalParticipant).publishTranscription(
-      transcription,
-    );
+    await (ctx.room.localParticipant as LocalParticipant).publishTranscription(transcription);
   }
 
   session.on("response_done", (response: openai.realtime.RealtimeResponse) => {
     let message: string | undefined;
     if (response.status === "incomplete") {
-      if (response.statusDetails?.reason) {
-        const reason = response.statusDetails.reason;
+      const reason = response.statusDetails?.reason;
+      if (!reason) {
+        message = "🚫 Response incomplete";
+      } else {
         switch (reason) {
           case "max_output_tokens":
             message = "🚫 Max output tokens reached";
@@ -185,8 +160,6 @@ async function runMultimodalAgent(
             message = `🚫 Response incomplete: ${reason}`;
             break;
         }
-      } else {
-        message = "🚫 Response incomplete";
       }
     } else if (response.status === "failed") {
       if (response.statusDetails?.error) {
@@ -212,13 +185,7 @@ async function runMultimodalAgent(
     const trackSid = getMicrophoneTrackSid(localParticipant);
 
     if (trackSid) {
-      sendTranscription(
-        ctx,
-        localParticipant,
-        trackSid,
-        "status-" + uuidv4(),
-        message,
-      );
+      sendTranscription(ctx, localParticipant, trackSid, "status-" + uuidv4(), message);
     }
   });
 }
