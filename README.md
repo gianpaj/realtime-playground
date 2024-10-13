@@ -38,10 +38,10 @@ This directory houses the web frontend, built with Next.js.
 2. Activate the virtual environment:
    - On macOS and Linux: `source .venv/bin/activate`
    - On Windows: `.venv\Scripts\activate`
-3. Load the environment variables:
+3. Install dependencies: `pip install -r requirements.txt`
+4. Load the environment variables:
    - On macOS and Linux: `source .env.local`
    - On Windows: `set -a; . .env.local; set +a`
-4. Install dependencies: `pip install -r requirements.txt`
 5. Run the agent in development mode: `python playground_agent.py dev`
 
 #### Node.js Version
